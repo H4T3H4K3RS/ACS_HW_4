@@ -379,6 +379,7 @@ bool getSettings() {
     // 3 - random
     // 4 - exit
     while (true) {
+        std::cout << "Choose input method:" << std::endl;
         std::cout << "> 0. Defaults" << std::endl;
         std::cout << "> 1. Console" << std::endl;
         std::cout << "> 2. File" << std::endl;
