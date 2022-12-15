@@ -1,7 +1,7 @@
 #include <iostream>
 #include <pthread.h>
 #include <chrono>
-#include <semaphore>
+#include <semaphore.h>
 #include <vector>
 #include <algorithm>
 #include <random>
@@ -9,30 +9,36 @@
 #include <cstdlib>
 #include <fstream>
 
-std::binary_semaphore anchuaryAttacksTarantery(0), taranteryAttacksAnchuary(0);
-std::vector<std::vector<int>> taranteryField;
-std::vector<std::vector<int>> anchuaryField;
-int anchuaryValueTotal = 0;
-int taranteryValueTotal = 0;
-const int AMMO_VALUE_RESERVE = 1;
-const int SIZE_RESERVE = 8;
-const int PROBABILITY_DIVISOR_RESERVE = 4;
-const int MIN_VALUE_RESERVE = 1;
-const int MAX_VALUE_RESERVE = 10;
-int AMMO_VALUE = AMMO_VALUE_RESERVE;
-int SIZE = SIZE_RESERVE;
-int PROBABILITY_DIVISOR = PROBABILITY_DIVISOR_RESERVE;
-int MIN_VALUE = MIN_VALUE_RESERVE;
-int MAX_VALUE = MAX_VALUE_RESERVE;
+
+pthread_mutex_t mutex; // pthread mutex
+
+
+
+sem_t anchuaryAttacksTarantery; // anchuaryAttacksTarantery семафор
+sem_t taranteryAttacksAnchuary; // taranteryAttacksAnchuary семафор
+std::vector<std::vector<int>> taranteryField; // поле Тарантерии
+std::vector<std::vector<int>> anchuaryField; // поле Анчуарии
+int anchuaryValueTotal = 0; // суммарная стоимость объектов Анчуарии
+int taranteryValueTotal = 0; // суммарная стоимость объектов Тарантерии
+const int AMMO_VALUE_RESERVE = 1; // значение стоимости снаряда по-умолчанию
+const int SIZE_RESERVE = 8; // значение длины и ширины полей по-умолчанию
+const int PROBABILITY_DIVISOR_RESERVE = 4; // значение знаменателя вероятности снаряда по-умолчанию
+const int MIN_VALUE_RESERVE = 1;  // минимальное значение ценности клетки поля по-умолчанию
+const int MAX_VALUE_RESERVE = 10;  // максимальное значение ценности клетки поля по-умолчанию
+int AMMO_VALUE = AMMO_VALUE_RESERVE; // значение стоимости снаряда
+int SIZE = SIZE_RESERVE; // значение длины и ширины полей
+int PROBABILITY_DIVISOR = PROBABILITY_DIVISOR_RESERVE; // значение знаменателя вероятности снаряда
+int MIN_VALUE = MIN_VALUE_RESERVE;  // минимальное значение ценности клетки поля
+int MAX_VALUE = MAX_VALUE_RESERVE;  // максимальное значение ценности клетки поля
 // 0 - nothing
 // n - valuable
 // -10 - nothing shot
 // -n - valuable shot
-std::ofstream fout("output.txt");
-std::ifstream fin("input.txt");
+std::ofstream fout("output.txt"); // output filestream
+std::ifstream fin("input.txt"); // input filestream
 bool FILE_USAGE = false;
 
-void generateFields() {
+void generateFields() { // генерация рандомных полей стран исходя из ограничений
     for (int i = 0; i < SIZE; i++) {
         anchuaryField.emplace_back();
         taranteryField.emplace_back();
@@ -51,7 +57,7 @@ void generateFields() {
     }
 }
 
-void printFields() {
+void printFields() { // вывод поля и статистики стран
     int taranteryShots = 0;
     int taranteryShotsValuable = 0;
     int taranteryShotsTotal = 0;
@@ -203,14 +209,14 @@ void printFields() {
     fout << "> Total Spent on Shots: " << taranteryShots * AMMO_VALUE << std::endl;
 }
 
-void anchuaryShot() {
+void anchuaryShot() { // метод, обозначающий выстрел Анчуарии
     bool choice = true;
     int x = 0;
     int y = 0;
     while (choice) {
         x = rand() % SIZE;
         y = rand() % SIZE;
-        if (taranteryField[y][x] >= 0)
+        if (taranteryField[y][x] >= 0) // если найдена клетка в Тарантерии в которую не стреляли, то выходим из цикла
             choice = false;
     }
     if (FILE_USAGE)
@@ -218,18 +224,18 @@ void anchuaryShot() {
     else
         std::cout << "[Anchuary] Shot Cell (" << x << "," << y << "). Value: " << taranteryField[y][x] << std::endl;
     taranteryField[y][x] = -taranteryField[y][x];
-    if (taranteryField[y][x] == 0)
+    if (taranteryField[y][x] == 0) // если клетка пустая то ставим значение стрелянной клетки по-умолчанию, то есть 10
         taranteryField[y][x] = -10;
 }
 
-void taranteryShot() {
+void taranteryShot() { // метод, обозначающий выстрел Тарантерии
     bool choice = true;
     int x = 0;
     int y = 0;
     while (choice) {
         x = rand() % SIZE;
         y = rand() % SIZE;
-        if (anchuaryField[y][x] >= 0)
+        if (anchuaryField[y][x] >= 0) // если найдена клетка в Анчуарии в которую не стреляли, то выходим из цикла
             choice = false;
     }
     if (FILE_USAGE)
@@ -237,13 +243,13 @@ void taranteryShot() {
     else
         std::cout << "[Tarantery] Shot Cell (" << x << "," << y << "). Value: " << anchuaryField[y][x] << std::endl;
     anchuaryField[y][x] = -anchuaryField[y][x];
-    if (anchuaryField[y][x] == 0)
+    if (anchuaryField[y][x] == 0) // если клетка пустая то ставим значение стрелянной клетки по-умолчанию, то есть 10
         anchuaryField[y][x] = -10;
 }
 
 bool anchuaryCheck() {
-    int valuableCellsLeft = 0;
-    int shotCells = 0;
+    int valuableCellsLeft = 0; // количество оставшихся ценных клеток в Тарантерии
+    int shotCells = 0; // количество клеток, в которые уже стреляли по Тарантерии
     for (int i = 0; i < taranteryField.size(); i++) {
         for (int j = 0; j < taranteryField[j].size(); j++) {
             if (taranteryField[i][j] < 0) {
@@ -253,18 +259,18 @@ bool anchuaryCheck() {
             }
         }
     }
-    if (valuableCellsLeft == 0) {
+    if (valuableCellsLeft == 0) { // проверяем наличие ценных клеток в Тарантерии
         return false;
     }
-    if (shotCells * AMMO_VALUE > taranteryValueTotal) {
+    if (shotCells * AMMO_VALUE > taranteryValueTotal) {  // проверяем, что стоимость снарядов общая не превысила ценность клеток в Тарантерии
         return false;
     }
     return true;
 }
 
 bool taranteryCheck() {
-    int valuableCellsLeft = 0;
-    int shotCells = 0;
+    int valuableCellsLeft = 0; // количество оставшихся ценных клеток в Анчуарии
+    int shotCells = 0; // количество клеток, в которые уже стреляли по Анчуарии
     for (int i = 0; i < anchuaryField.size(); i++) {
         for (int j = 0; j < anchuaryField[j].size(); j++) {
             if (anchuaryField[i][j] < 0) {
@@ -274,10 +280,10 @@ bool taranteryCheck() {
             }
         }
     }
-    if (valuableCellsLeft == 0) {
+    if (valuableCellsLeft == 0) { // проверяем наличие ценных клеток в Анчуарии
         return false;
     }
-    if (shotCells * AMMO_VALUE > anchuaryValueTotal) {
+    if (shotCells * AMMO_VALUE > anchuaryValueTotal) {  // проверяем, что стоимость снарядов общая не превысила ценность клеток в Анчуарии
         return false;
     }
     return true;
@@ -287,25 +293,29 @@ void *anchuaryAttack(void *args) {
     if (FILE_USAGE) {
         bool run = true;
         while (run) {
-            anchuaryAttacksTarantery.acquire();
-            if (!taranteryCheck())
+            pthread_mutex_lock(&mutex);
+            sem_wait(&anchuaryAttacksTarantery);
+            if (!taranteryCheck()) // Проверяем, что Тарантерия еще не проиграла
                 break;
             fout << "[Anchuary] Attacking the Tarantery\n";
             fout << "[Anchuary] Chooses Cell\n";
-            anchuaryShot();
+            anchuaryShot(); // Делаем выстрел по Тарантерии
             usleep(1e6);
             fout << "[Anchuary] Attack ended.\n";
-            run = anchuaryCheck();
+            run = anchuaryCheck(); // Проверяем, что Анчуария еще не выиграла
             if (!run) {
-                fout << "[Stats] Anchuary defeats Tarantery!\n";
+                fout << "[Stats] Anchuary defeats Tarantery!\n"; // Если Анчуария выиграла, то выводим сообщение о победе
             }
             printFields();
-            taranteryAttacksAnchuary.release();
+            sem_post(&taranteryAttacksAnchuary);
+            pthread_mutex_unlock(&mutex);
         }
-    } else {
+    }
+    else { // Аналогичный вывод для консольного ввода/вывода
         bool run = true;
         while (run) {
-            anchuaryAttacksTarantery.acquire();
+            pthread_mutex_lock(&mutex);
+            sem_wait(&anchuaryAttacksTarantery);
             if (!taranteryCheck())
                 break;
             std::cout << "[Anchuary] Attacking the Tarantery\n";
@@ -318,7 +328,8 @@ void *anchuaryAttack(void *args) {
                 std::cout << "[Stats] Anchuary defeats Tarantery!\n";
             }
             printFields();
-            taranteryAttacksAnchuary.release();
+            sem_post(&taranteryAttacksAnchuary);
+            pthread_mutex_unlock(&mutex);
         }
     }
 }
@@ -327,25 +338,28 @@ void *anchuaryAttack(void *args) {
     if (FILE_USAGE) {
         bool run = true;
         while (run) {
-            taranteryAttacksAnchuary.acquire();
-            if (!anchuaryCheck())
+            pthread_mutex_lock(&mutex);
+            sem_wait(&taranteryAttacksAnchuary);
+            if (!anchuaryCheck()) // Проверяем, что Анчуария еще не проиграла
                 break;
             fout << "[Tarantery] Attacking the Anchuary\n";
             fout << "[Tarantery] Chooses Cell\n";
-            taranteryShot();
+            taranteryShot(); // Делаем выстрел по Анчуарии
             usleep(1e6);
             fout << "[Tarantery] Attack ended.\n";
-            run = taranteryCheck();
+            run = taranteryCheck(); // Проверяем, что Тарантерия еще не выиграла
             if (!run) {
-                fout << "[Stats] Tarantery defeats Anchuary!\n";
+                fout << "[Stats] Tarantery defeats Anchuary!\n"; // Если Тарантерия выиграла, то выводим сообщение о победе
             }
             printFields();
-            anchuaryAttacksTarantery.release();
+            sem_post(&anchuaryAttacksTarantery);
+            pthread_mutex_unlock(&mutex);
         }
-    } else {
+    } else { // Аналогичный вывод для консольного ввода/вывода
         bool run = true;
         while (run) {
-            taranteryAttacksAnchuary.acquire();
+            pthread_mutex_lock(&mutex);
+            sem_wait(&taranteryAttacksAnchuary);
             if (!anchuaryCheck())
                 break;
             std::cout << "[Tarantery] Attacking the Anchuary\n";
@@ -358,20 +372,25 @@ void *anchuaryAttack(void *args) {
                 std::cout << "[Stats] Tarantery defeats Anchuary!\n";
             }
             printFields();
-            anchuaryAttacksTarantery.release();
+            sem_post(&anchuaryAttacksTarantery);
+            pthread_mutex_unlock(&mutex);
         }
     }
 }
 
-void resetSettings() {
+void resetSettings() { // метод для сброса настроек
     AMMO_VALUE = AMMO_VALUE_RESERVE;
     SIZE = SIZE_RESERVE;
     PROBABILITY_DIVISOR = PROBABILITY_DIVISOR_RESERVE;
     MIN_VALUE = MIN_VALUE_RESERVE;
     MAX_VALUE = MAX_VALUE_RESERVE;
+    anchuaryValueTotal = 0;
+    taranteryValueTotal = 0;
+    taranteryField = std::vector<std::vector<int>>();
+    anchuaryField = std::vector<std::vector<int>>();
 }
 
-bool getSettings() {
+bool getSettings() { // метод выбора настроек пользователем
     int dataSource = 0;
     // 0 - defaults
     // 1 - console
@@ -393,8 +412,8 @@ bool getSettings() {
         }
         break;
     }
-    if (dataSource == 0) {
-        std::cout << "You have chosen to use defauls" << std::endl;
+    if (dataSource == 0) { // выбран ввод/вывод из файла
+        std::cout << "You have chosen to use defaults" << std::endl;
         return true;
     }
     if (dataSource == 4) {
@@ -402,7 +421,7 @@ bool getSettings() {
         std::cout << "Bye!";
         return false;
     }
-    if (dataSource == 1) {
+    if (dataSource == 1) { // выбран ввод/вывод из консоли
         std::cout << "You have chosen to use console." << std::endl;
         while (true) {
             std::cout << "Field Size (5 to 25): ";
@@ -413,7 +432,7 @@ bool getSettings() {
             }
             break;
         }
-        while (true) {
+        while (true) { // ввод стоимости патрона
             std::cout << "Ammo Price (1 to 9): ";
             std::cin >> AMMO_VALUE;
             if (AMMO_VALUE < 1 || AMMO_VALUE > 9) {
@@ -422,10 +441,10 @@ bool getSettings() {
             }
             break;
         }
-        while (true) {
-            std::cout << "Min Cell Value (1 to 9): ";
+        while (true) { // ввод минимальной ценности клетки
+            std::cout << "Min Cell Value (1 to 8): ";
             std::cin >> MIN_VALUE;
-            if (MIN_VALUE < 1 || MIN_VALUE > 9) {
+            if (MIN_VALUE < 1 || MIN_VALUE > 8) {
                 std::cout << "Error Min Cell Value!" << std::endl;
                 continue;
             }
@@ -434,7 +453,7 @@ bool getSettings() {
         while (true) {
             std::cout << "Max Cell Value (1 to 9): ";
             std::cin >> MAX_VALUE;
-            if (MAX_VALUE < 1 || MAX_VALUE > 9 || MAX_VALUE < MIN_VALUE) {
+            if (MAX_VALUE < 1 || MAX_VALUE > 9 || MAX_VALUE <= MIN_VALUE) {
                 std::cout << "Error Max Cell Value!" << std::endl;
                 continue;
             }
@@ -452,7 +471,7 @@ bool getSettings() {
         }
         std::cout << std::endl;
     }
-    if (dataSource == 2) {
+    if (dataSource == 2) { // выбран ввод/вывод из файла
         fout << "You have chosen to use file." << std::endl;
         FILE_USAGE = true;
         while (true) {
@@ -475,9 +494,9 @@ bool getSettings() {
             break;
         }
         while (true) {
-            fout << "Min Cell Value (1 to 9): ";
+            fout << "Min Cell Value (1 to 8): ";
             fin >> MIN_VALUE;
-            if (MIN_VALUE < 1 || MIN_VALUE > 9) {
+            if (MIN_VALUE < 1 || MIN_VALUE > 8) {
                 fout << "Error Min Cell Value!" << std::endl;
                 continue;
             }
@@ -486,7 +505,7 @@ bool getSettings() {
         while (true) {
             fout << "Max Cell Value (1 to 9): ";
             fin >> MAX_VALUE;
-            if (MAX_VALUE < 1 || MAX_VALUE > 9 || MAX_VALUE < MIN_VALUE) {
+            if (MAX_VALUE < 1 || MAX_VALUE > 9 || MAX_VALUE <= MIN_VALUE) {
                 fout << "Error Max Cell Value!" << std::endl;
                 continue;
             }
@@ -504,12 +523,12 @@ bool getSettings() {
         }
         fout << std::endl;
     }
-    if (dataSource == 3) {
+    if (dataSource == 3) { // выбран ввод/вывод с помощью рандома
         std::cout << "You have chosen to use random." << std::endl;
         AMMO_VALUE = rand() % 9 + 1;
-        MIN_VALUE = rand() % 9 + 1;
+        MIN_VALUE = rand() % 8 + 1;
         MAX_VALUE = rand() % 9 + 1;
-        while (MAX_VALUE < MIN_VALUE) {
+        while (MAX_VALUE <= MIN_VALUE) {
             MAX_VALUE = rand() % 9 + 1;
         }
         SIZE = rand() % 21 + 5;
@@ -518,7 +537,7 @@ bool getSettings() {
     return true;
 }
 
-bool getSettings(int argc, char *argv[]) {
+bool getSettings(int argc, char *argv[]) { // получение настроек из командной строки
     if (argc != 1) {
         if (argc != 6) {
             std::cout << "Failed to read command line arguments" << std::endl;
@@ -542,7 +561,7 @@ bool getSettings(int argc, char *argv[]) {
     return getSettings();
 }
 
-void printSettings() {
+void printSettings() { // вывод заданных настроек
     if (FILE_USAGE) {
         fout << "Field Sizes: " << SIZE << "x" << SIZE << std::endl;
         fout << "Ammo Price: " << AMMO_VALUE << std::endl;
@@ -558,6 +577,7 @@ void printSettings() {
 }
 
 int main(int argc, char *argv[]) {
+    pthread_mutex_init(&mutex, NULL);
     srand(time(0));
     if (!getSettings(argc, argv)) {
         return 0;
@@ -568,13 +588,16 @@ int main(int argc, char *argv[]) {
         printFields();
         pthread_t taranteryWorker;
         pthread_t anchuaryWorker;
+        sem_init(&anchuaryAttacksTarantery, 0, 0); //  инициализируем семафоры
+        sem_init(&taranteryAttacksAnchuary, 0, 0);
         pthread_create(&taranteryWorker, NULL, taranteryAttack, NULL);
         pthread_create(&anchuaryWorker, NULL, anchuaryAttack, NULL);
-        taranteryAttacksAnchuary.release();
+        sem_post(&taranteryAttacksAnchuary);
         pthread_join(taranteryWorker, NULL);
         pthread_join(anchuaryWorker, NULL);
         resetSettings();
         if (!getSettings())
             break;
     }
+    pthread_mutex_destroy(&mutex);
 }
